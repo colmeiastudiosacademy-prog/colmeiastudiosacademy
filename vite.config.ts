@@ -13,6 +13,7 @@ export default defineConfig({
           /^\/api\//,
           /^\/oauth\//,
           /^\/mcp/,
+          /^\/setup/,
           /^\/\.well-known\//,
         ],
       },

@@ -24,7 +24,7 @@ export default async (req: Request) => {
       if (
         typeof p.password !== "string" ||
         p.password.length > 256 ||
-        !checkOwner(p.password)
+        !(await checkOwner(p.password))
       )
         throw new CRMError(401, "Senha incorreta");
       const token = await newSession();

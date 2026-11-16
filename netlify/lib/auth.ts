@@ -29,8 +29,13 @@ export function equal(a: string, b: string) {
     y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
-export function checkOwner(password: string) {
-  const parts = env("CRM_OWNER_PASSWORD_HASH").split("$");
+export async function checkOwner(password: string) {
+  const stored = await transaction(
+    async (c) =>
+      (await c.query("SELECT password_hash FROM crm_owner WHERE id='owner'"))
+        .rows[0]?.password_hash as string | undefined,
+  );
+  const parts = (stored || env("CRM_OWNER_PASSWORD_HASH")).split("$");
   if (parts.length !== 3 || parts[0] !== "scrypt")
     throw new CRMError(503, "Hash da senha inválido");
   return equal(scryptSync(password, parts[1], 64).toString("hex"), parts[2]);

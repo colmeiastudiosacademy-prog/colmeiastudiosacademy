@@ -21,6 +21,8 @@ vi.mock("@netlify/database", () => ({
 import { readWorkspace, mutate } from "./store";
 import sessionHandler from "../functions/session.mts";
 import apiHandler from "../functions/api.mts";
+import setupHandler from "../functions/setup.mts";
+import connectionHandler from "../functions/connection.mts";
 import oauthHandler from "../functions/oauth.mts";
 import mcpHandler from "../functions/mcp.mts";
 const base = "https://crm.test";
@@ -54,7 +56,7 @@ afterAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await runtime.pool.query(
-    "TRUNCATE crm_workspace,crm_audit,crm_requests,crm_auth_codes,crm_tokens RESTART IDENTITY",
+    "TRUNCATE crm_workspace,crm_audit,crm_requests,crm_auth_codes,crm_tokens,crm_owner RESTART IDENTITY",
   );
 });
 const mutation = (action: string, p: any, key = uid()) =>
@@ -354,6 +356,64 @@ describe("Netlify Database — persistência e integridade", () => {
   });
 });
 describe("Autenticação do site e OAuth MCP", () => {
+  it("ativa proprietário uma única vez e permite login com a senha escolhida", async () => {
+    const token = randomBytes(32).toString("base64url");
+    runtime.vars.set(
+      "CRM_SETUP_TOKEN_HASH",
+      createHash("sha256").update(token).digest("hex"),
+    );
+    const password = "owner-chosen-password";
+    const activate = () =>
+      setupHandler(
+        new Request(base + "/setup", {
+          method: "POST",
+          headers: { Origin: base },
+          body: new URLSearchParams({ token, password }),
+        }),
+      );
+    const r = await activate();
+    expect(r.status).toBe(303);
+    expect(r.headers.get("set-cookie")).toContain("HttpOnly");
+    expect((await activate()).status).toBe(409);
+    const login = await sessionHandler(
+      new Request(base + "/api/session", {
+        method: "POST",
+        headers: { Origin: base },
+        body: JSON.stringify({ password }),
+      }),
+    );
+    expect(login.status).toBe(200);
+  });
+  it("rejeita ativação sem o token correto", async () => {
+    runtime.vars.set(
+      "CRM_SETUP_TOKEN_HASH",
+      createHash("sha256").update("valid-token").digest("hex"),
+    );
+    const r = await setupHandler(
+      new Request(base + "/setup", {
+        method: "POST",
+        headers: { Origin: base },
+        body: new URLSearchParams({
+          token: "wrong",
+          password: "owner-chosen-password",
+        }),
+      }),
+    );
+    expect(r.status).toBe(403);
+  });
+  it("mantém credenciais OAuth disponíveis somente ao dono autenticado", async () => {
+    expect(
+      (await connectionHandler(new Request(base + "/api/connection"))).status,
+    ).toBe(401);
+    const cookie = await loginCookie();
+    const r = await connectionHandler(
+      new Request(base + "/api/connection", { headers: { Cookie: cookie } }),
+    );
+    expect(r.status).toBe(200);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+    expect((await r.json()).clientId).toBe("test-client");
+  });
+
   it("não aceita token em recurso ou origem diferente", async () => {
     const { tokens } = await oauthAccess();
     runtime.vars.set("CRM_ORIGIN", "https://other.test");

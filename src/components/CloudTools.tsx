@@ -19,6 +19,11 @@ export default function CloudTools({
   onMutate: (action: string, input: unknown) => Promise<any>;
   onLogout: () => void;
 }) {
+  const [connection, setConnection] = useState<{
+    clientId: string;
+    clientSecret: string;
+    redirectUris: string;
+  } | null>(null);
   const [legacy, setLegacy] = useState<{
       leads: any[];
       history: any[];
@@ -79,6 +84,54 @@ export default function CloudTools({
           A conexão com o ChatGPT usa OAuth e precisa ser adicionada à sua conta
           de ChatGPT. A hospedagem não conecta o app automaticamente.
         </p>
+        <button
+          className="btn"
+          disabled={busy}
+          onClick={() =>
+            void run(async () =>
+              setConnection(await request("/api/connection")),
+            )
+          }
+        >
+          Exibir dados para conectar ao ChatGPT
+        </button>
+        {connection && (
+          <div className="migration-box">
+            <p>
+              Ao adicionar o MCP no ChatGPT, escolha OAuth e credenciais
+              estáticas. Estes dados são privados da sua integração.
+            </p>
+            <label>
+              Client ID
+              <input readOnly value={connection.clientId} />
+            </label>
+            <label>
+              Client Secret
+              <input type="password" readOnly value={connection.clientSecret} />
+            </label>
+            <button
+              className="btn"
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(connection.clientSecret)
+                  .then(() =>
+                    setMessage(
+                      "Segredo copiado. Cole apenas na configuração OAuth do ChatGPT.",
+                    ),
+                  )
+                  .catch(() =>
+                    setMessage("Copie pelo campo de senha usando o navegador."),
+                  )
+              }
+            >
+              Copiar Client Secret
+            </button>
+            <button className="btn" onClick={() => setConnection(null)}>
+              Ocultar dados
+            </button>
+            <p>Callback permitido: {connection.redirectUris}</p>
+          </div>
+        )}
         {legacy && (
           <div className="migration-box">
             <b>{legacy.leads.length} salões encontrados neste navegador</b>

@@ -120,7 +120,7 @@ export default async (req: Request) => {
         const p = await req.formData();
         const v = await readForm(String(p.get("form") || ""));
         const password = String(p.get("password") || "");
-        if (password.length > 256 || !checkOwner(password))
+        if (password.length > 256 || !(await checkOwner(password)))
           throw new CRMError(401, "Senha incorreta. Volte e tente novamente.");
         if (
           v.clientId !== env("CRM_OAUTH_CLIENT_ID") ||

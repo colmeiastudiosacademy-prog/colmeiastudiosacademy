@@ -58,6 +58,14 @@ Em projetos com deploy contínuo, atualize também o repositório conectado: o p
 
 A origem precisa corresponder ao domínio usado para abrir o CRM. Para desenvolvimento use `http://localhost:8888`. Para um Deploy Preview, configure a origem exata daquele preview em um contexto de teste separado; a origem de produção rejeita gravações feitas de outro domínio por proteção contra CSRF. Não compartilhe previews contendo dados de produção: branches de preview podem receber uma cópia desses dados.
 
+## Ativação inicial com senha escolhida por você
+
+A publicação assistida pode configurar um link privado `/setup#TOKEN`. O token é validado pelo hash secreto `CRM_SETUP_TOKEN_HASH` na Netlify. Ele só funciona enquanto não houver proprietário no banco: o primeiro cadastro de senha vence atomicamente, e todos os usos posteriores são recusados. O token fica no fragmento do URL, não nos logs HTTP, e é removido do histórico da barra de endereço ao abrir.
+
+Escolha uma senha de pelo menos 12 caracteres nessa página. O servidor salva somente um hash scrypt e cria sua sessão no CRM. Ninguém precisa receber sua senha pela conversa. Depois da ativação, a senha cadastrada no banco prevalece sobre o hash de contingência da variável `CRM_OWNER_PASSWORD_HASH`.
+
+Após entrar, Configurações → Exibir dados para conectar ao ChatGPT permite copiar as credenciais OAuth da sua integração. A API exige sessão do proprietário e responde com `no-store`; o segredo OAuth não é incluído no código-fonte nem no build estático. A senha do banco nunca é fornecida ao navegador.
+
 ## Conectar ao ChatGPT
 
 Depois de publicar e validar o servidor:
